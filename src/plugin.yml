@@ -1,0 +1,17 @@
+main: hu.Pdani.UHC.Main
+name: UltraHardcore
+description: UHC plugin with built-in randomizer
+version: 1.2
+api-version: 1.14
+authors: [Pdani001]
+website: pdani.hu
+prefix: UHC
+commands:
+  ultrahardcore:
+    aliases: [uhc,ultrahc,uhardcore,uhardc,ultrahardc,ultrahcore,uhcore]
+    usage: /<command> [args]
+    description: UHC command
+permissions:
+  uhc.admin:
+    description: UHC Admin permission
+    default: op
