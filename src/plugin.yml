@@ -8,7 +8,7 @@ website: pdani.hu
 prefix: UHC
 commands:
   ultrahardcore:
-    aliases: [uhc,ultrahc,uhardcore,uhardc,ultrahardc,ultrahcore,uhcore]
+    aliases: [uhc]
     usage: /<command> [args]
     description: UHC command
 permissions:
