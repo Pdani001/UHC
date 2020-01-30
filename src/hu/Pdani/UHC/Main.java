@@ -182,6 +182,9 @@ public class Main extends JavaPlugin {
         border.setSize(BORDER_SIZE);
         getServer().setWhitelist(false);
         pc.runTaskTimer(this,0,20);
+        for(Player online : Bukkit.getOnlinePlayers()) {
+            bar.addPlayer(online);
+        }
     }
 
     public static int setPvP(int newValue){
@@ -283,7 +286,6 @@ public class Main extends JavaPlugin {
             ALIVE++;
             online.setScoreboard(board);
             online.setGameMode(GameMode.SURVIVAL);
-            bar.addPlayer(online);
         }
     }
 

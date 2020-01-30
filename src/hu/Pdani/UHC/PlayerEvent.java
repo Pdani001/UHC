@@ -28,6 +28,7 @@ public class PlayerEvent implements Listener {
     @EventHandler
     public void onJoin(PlayerJoinEvent event){
         if(Main.SCOREBOARD) event.getPlayer().setScoreboard(Main.getBoard());
+        if(Main.BOSSBAR_MESSAGES) Main.bar.addPlayer(event.getPlayer());
         if(!Main.gameStarted()) event.getPlayer().setGameMode(GameMode.ADVENTURE);
     }
 
