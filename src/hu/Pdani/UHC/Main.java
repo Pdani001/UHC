@@ -413,6 +413,7 @@ public class Main extends JavaPlugin {
             }
             online.setFoodLevel(20);
             online.setHealth(20);
+            online.setExp(0);
             online.getInventory().clear();
 
         }

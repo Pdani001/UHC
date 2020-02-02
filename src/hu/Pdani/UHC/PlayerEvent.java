@@ -34,6 +34,7 @@ public class PlayerEvent implements Listener {
             player.teleport(new Location(event.getPlayer().getWorld(),event.getPlayer().getLocation().getX(),y,event.getPlayer().getLocation().getZ()));
             player.getInventory().clear();
             player.setHealth(20);
+            player.setExp(0);
             player.sendMessage(c(Main.getPlugin().getConfig().getString("Messages.Game.Join.Server").replace("{0}", event.getPlayer().getName())));
         } else {
             World w = WorldManager.getWorld();
@@ -50,6 +51,7 @@ public class PlayerEvent implements Listener {
             player.setHealth(20);
             player.setGameMode(GameMode.SPECTATOR);
             player.teleport(loc);
+            player.setExp(0);
             player.sendMessage(c(Main.getPlugin().getConfig().getString("Messages.Game.Join.Late")));
         }
     }
