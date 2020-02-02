@@ -40,11 +40,11 @@ public class Main extends JavaPlugin {
 
     public void onLoad(){
         this.getLogger().log(Level.INFO,"Preparing for battle...");
+        plugin = this;
         setupConfig();
     }
 
     public void onEnable(){
-        plugin = this;
 
         bar = getServer().createBossBar("Test",BarColor.WHITE, BarStyle.SOLID);
         bar.setVisible(false);
