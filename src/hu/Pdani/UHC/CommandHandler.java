@@ -27,6 +27,7 @@ public class CommandHandler implements CommandExecutor {
                 return true;
             Player player = (Player) sender;
             if(Main.gameCheck(player)) {
+                sender.sendMessage(c(Main.getPlugin().getConfig().getString("Messages.Game.Leave.Player")));
                 Main.leave(player);
             } else {
                 sender.sendMessage(c(Main.getPlugin().getConfig().getString("Messages.Command.LeaveError")));
@@ -36,6 +37,7 @@ public class CommandHandler implements CommandExecutor {
                 return true;
             Player player = (Player) sender;
             if(!Main.gameCheck(player)) {
+                sender.sendMessage(c(Main.getPlugin().getConfig().getString("Messages.Game.Join.Game")));
                 Main.gameJoin(player);
             } else {
                 sender.sendMessage(c(Main.getPlugin().getConfig().getString("Messages.Command.JoinError")));
