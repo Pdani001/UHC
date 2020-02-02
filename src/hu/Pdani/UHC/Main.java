@@ -131,12 +131,12 @@ public class Main extends JavaPlugin {
         plugin.getConfig().addDefault("Messages.GameEnd.Stop.Count","&cThe server closes in &f{0} second(s)");
         plugin.getConfig().addDefault("Messages.GameEnd.Stop.Now","&4The server is closing!");
         plugin.getConfig().addDefault("Messages.Game.Leave.Announce","&e{0} abandoned the current game!");
-        plugin.getConfig().addDefault("Messages.Game.Leave.Player","&c&lGame left.");
+        plugin.getConfig().addDefault("Messages.Game.Leave.Player","&4&lGame left.");
         plugin.getConfig().addDefault("Messages.Game.Join.Server","&aWelcome {0}! To be able to play, please enter &7/uhc join&a!");
         plugin.getConfig().addDefault("Messages.Game.Join.Game","&b&lGame joined!");
         plugin.getConfig().addDefault("Messages.Game.Join.Late","&cThe game already started, so you can only spectate!");
         plugin.getConfig().addDefault("Messages.Game.Join.Spectator","&cYou didn't join the game, so you can only spectate!");
-        plugin.getConfig().addDefault("Messages.Command.JoinError","&6You are already in the game!");
+        plugin.getConfig().addDefault("Messages.Command.JoinError","&3You are already in the game!");
         plugin.getConfig().addDefault("Messages.Command.LeaveError","&cYou are not in the game!");
         plugin.getConfig().addDefault("Messages.Command.Help.Join","/uhc join - Join the game");
         plugin.getConfig().addDefault("Messages.Command.Help.Leave","/uhc leave - Leave the game");
@@ -405,7 +405,12 @@ public class Main extends JavaPlugin {
                 } catch (Exception ignored) {}
             }
             online.teleport(loc);
-            online.setGameMode(GameMode.SURVIVAL);
+            if(join.contains(online)) {
+                online.setGameMode(GameMode.SURVIVAL);
+            } else {
+                online.setGameMode(GameMode.SPECTATOR);
+                online.sendMessage(c(Main.getPlugin().getConfig().getString("Messages.Game.Join.Spectator")));
+            }
             online.setFoodLevel(20);
             online.setHealth(20);
             online.getInventory().clear();
