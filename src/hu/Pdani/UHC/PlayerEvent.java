@@ -1,7 +1,6 @@
 package hu.Pdani.UHC;
 
-import org.bukkit.GameMode;
-import org.bukkit.Location;
+import org.bukkit.*;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Firework;
 import org.bukkit.entity.LivingEntity;
@@ -16,7 +15,6 @@ import org.bukkit.event.entity.EntityDamageEvent.DamageCause;
 import org.bukkit.event.entity.EntityShootBowEvent;
 import org.bukkit.event.entity.FoodLevelChangeEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
-import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
@@ -27,9 +25,33 @@ import org.bukkit.metadata.FixedMetadataValue;
 public class PlayerEvent implements Listener {
     @EventHandler
     public void onJoin(PlayerJoinEvent event){
-        if(Main.SCOREBOARD) event.getPlayer().setScoreboard(Main.getBoard());
+        Player player = event.getPlayer();
+        if(Main.SCOREBOARD) player.setScoreboard(Main.getBoard());
         if(Main.BOSSBAR_MESSAGES) Main.bar.addPlayer(event.getPlayer());
-        if(!Main.gameStarted()) event.getPlayer().setGameMode(GameMode.ADVENTURE);
+        if(!Main.gameStarted()){
+            player.setGameMode(GameMode.ADVENTURE);
+            double y = event.getPlayer().getWorld().getHighestBlockYAt(event.getPlayer().getLocation());
+            player.teleport(new Location(event.getPlayer().getWorld(),event.getPlayer().getLocation().getX(),y,event.getPlayer().getLocation().getZ()));
+            player.getInventory().clear();
+            player.setHealth(20);
+            player.sendMessage(c(Main.getPlugin().getConfig().getString("Messages.Game.Join.Server").replace("{0}", event.getPlayer().getName())));
+        } else {
+            World w = WorldManager.getWorld();
+            boolean isSafe = false;
+            Location loc = null;
+            while(!isSafe) {
+                loc = Main.getRandomLocation(w);
+                try {
+                    loc = LocationUtil.getSafeDestination(loc);
+                    isSafe = true;
+                } catch (Exception ignored) {}
+            }
+            player.getInventory().clear();
+            player.setHealth(20);
+            player.setGameMode(GameMode.SPECTATOR);
+            player.teleport(loc);
+            player.sendMessage(c(Main.getPlugin().getConfig().getString("Messages.Game.Join.Late")));
+        }
     }
 
     @EventHandler
@@ -77,6 +99,10 @@ public class PlayerEvent implements Listener {
                 return;
             }
             Player player = (Player) entity;
+            PlayerInventory pi = player.getInventory();
+            if(pi.getItemInMainHand().getType() == Material.TOTEM_OF_UNDYING || pi.getItemInOffHand().getType() == Material.TOTEM_OF_UNDYING){
+                return;
+            }
             if(Main.gameStarted()) ev.setCancelled(true);
             DamageCause c = ev.getCause();
             if(c == DamageCause.ENTITY_ATTACK){
@@ -154,8 +180,7 @@ public class PlayerEvent implements Listener {
             if(Main.gameStarted()) {
                 player.setHealth(20);
                 player.setGameMode(GameMode.SPECTATOR);
-                player.teleport(Main.getPlugin().getServer().getWorld("world").getHighestBlockAt(0, 0).getLocation());
-                Main.playerDeath();
+                Main.playerDeath(player);
             }
         } else {
             if(!Main.isPvP() || Main.isEnded()){
@@ -172,5 +197,8 @@ public class PlayerEvent implements Listener {
                 }
             }
         }
+    }
+    private String c(String m){
+        return ChatColor.translateAlternateColorCodes('&',m);
     }
 }

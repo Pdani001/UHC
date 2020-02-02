@@ -16,6 +16,7 @@ import org.bukkit.scoreboard.*;
 import org.bukkit.util.Vector;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.logging.Level;
@@ -23,7 +24,6 @@ import java.util.logging.Level;
 public class Main extends JavaPlugin {
     private static JavaPlugin plugin = null;
     public static boolean RANDOMIZE_ITEMS, SCOREBOARD, BORDER_ALLOW, SERVER_RESTART, FORCE_START, BOSSBAR_MESSAGES;
-    private static WorldBorder border;
     private static int PVP;
     public static int BORDER_WAIT,BORDER_START_WAIT,BORDER_SIZE,BORDER_SPEED,MIN_PLAYERS;
     private static Border bc;
@@ -31,16 +31,20 @@ public class Main extends JavaPlugin {
     private static Restart rc;
     private static Scoreboard board;
     private static boolean isStarted = false;
-    private static int ALIVE = 0;
     private static ArrayList<Color> colors = new ArrayList<>();
+    public static ArrayList<Player> list = new ArrayList<>();
+    public static ArrayList<Player> join = new ArrayList<>();
     private static Player winner = null;
     private static BarColor startcolor,pvpcolor,bordercolor;
     public static BossBar bar;
 
+    public void onLoad(){
+        this.getLogger().log(Level.INFO,"Preparing for battle...");
+        setupConfig();
+    }
+
     public void onEnable(){
         plugin = this;
-
-        setupConfig();
 
         bar = getServer().createBossBar("Test",BarColor.WHITE, BarStyle.SOLID);
         bar.setVisible(false);
@@ -61,24 +65,25 @@ public class Main extends JavaPlugin {
         MIN_PLAYERS = getConfig().getInt("MIN_PLAYERS");
         FORCE_START = false;
 
+        this.getLogger().log(Level.INFO,"BORDER_SIZE: "+BORDER_SIZE);
+        this.getLogger().log(Level.INFO,"BORDER_SPEED: "+BORDER_SPEED);
+
         if(RANDOMIZE_ITEMS) Randomizer.init();
 
         getServer().getPluginManager().registerEvents(new PlayerEvent(),this);
         getServer().getPluginManager().registerEvents(new ItemEvent(),this);
-        this.getLogger().log(Level.INFO,"Enabled plugin");
-
-        World world = getServer().getWorld("world");
-        world.setGameRule(GameRule.NATURAL_REGENERATION,false);
-        world.setGameRule(GameRule.DISABLE_RAIDS,true);
-        world.setGameRule(GameRule.ANNOUNCE_ADVANCEMENTS,false);
-        world.setGameRule(GameRule.SPAWN_RADIUS,BORDER_SIZE/4);
+        this.getLogger().log(Level.INFO,"Plugin is now enabled!");
+        this.getLogger().log(Level.INFO,"UltraHardcore plugin by Pdani001");
 
         pc = new PVP();
         bc = new Border();
         rc = new Restart();
 
         start();
-        if(getVersionInt() >= 19) addNotch();
+        addNotch();
+
+        World n = getServer().getWorld("world");
+        n.setDifficulty(Difficulty.PEACEFUL);
     }
 
     public static void setupConfig() {
@@ -89,9 +94,9 @@ public class Main extends JavaPlugin {
         plugin.getConfig().addDefault("SCOREBOARD", true);
         plugin.getConfig().addDefault("PVP", 300);
         plugin.getConfig().addDefault("BORDER_WAIT", 90);
-        plugin.getConfig().addDefault("BORDER_START_WAIT", 120);
-        plugin.getConfig().addDefault("BORDER_SIZE", 500);
-        plugin.getConfig().addDefault("BORDER_SPEED", 30);
+        plugin.getConfig().addDefault("BORDER_START_WAIT", 180);
+        plugin.getConfig().addDefault("BORDER_SIZE", 1000);
+        plugin.getConfig().addDefault("BORDER_SPEED", 40);
         plugin.getConfig().addDefault("BORDER_ALLOW", true);
         plugin.getConfig().addDefault("MIN_PLAYERS", 2);
         plugin.getConfig().addDefault("START", 30);
@@ -102,7 +107,7 @@ public class Main extends JavaPlugin {
         plugin.getConfig().addDefault("Messages.PVP.Start","&4&lPVP starts now!");
         plugin.getConfig().addDefault("Messages.Border.Start.Min","&c&lThe border will start in {0} minute(s)");
         plugin.getConfig().addDefault("Messages.Border.Start.Sec","&c&lThe border will start in {0} second(s)");
-        plugin.getConfig().addDefault("Messages.Border.Moving","&6&lThe border is moving!!");
+        plugin.getConfig().addDefault("Messages.Border.Moving","&6&lThe border is shrinking to {0}!!");
         plugin.getConfig().addDefault("Messages.GameStart","&3&lThe game starts in {0} second(s)");
         plugin.getConfig().addDefault("Messages.Death.Player","&6{0} killed &f{1}");
         plugin.getConfig().addDefault("Messages.Death.Mob","&c{0} died by &f{1}");
@@ -125,6 +130,19 @@ public class Main extends JavaPlugin {
         plugin.getConfig().addDefault("Messages.GameEnd.Restart.InformationForYou","If you want to use the restart feature you need to set things up on your end, as this plugin only shuts down the server!");
         plugin.getConfig().addDefault("Messages.GameEnd.Stop.Count","&cThe server closes in &f{0} second(s)");
         plugin.getConfig().addDefault("Messages.GameEnd.Stop.Now","&4The server is closing!");
+        plugin.getConfig().addDefault("Messages.Game.Leave.Announce","&e{0} abandoned the current game!");
+        plugin.getConfig().addDefault("Messages.Game.Leave.Player","&c&lGame left.");
+        plugin.getConfig().addDefault("Messages.Game.Join.Server","&aWelcome {0}! To be able to play, please enter &7/uhc join&a!");
+        plugin.getConfig().addDefault("Messages.Game.Join.Game","&b&lGame joined!");
+        plugin.getConfig().addDefault("Messages.Game.Join.Late","&cThe game already started, so you can only spectate!");
+        plugin.getConfig().addDefault("Messages.Game.Join.Spectator","&cYou didn't join the game, so you can only spectate!");
+        plugin.getConfig().addDefault("Messages.Command.JoinError","&6You are already in the game!");
+        plugin.getConfig().addDefault("Messages.Command.LeaveError","&cYou are not in the game!");
+        plugin.getConfig().addDefault("Messages.Command.Help.Join","/uhc join - Join the game");
+        plugin.getConfig().addDefault("Messages.Command.Help.Leave","/uhc leave - Leave the game");
+        plugin.getConfig().addDefault("Messages.Command.Help.Reload","/uhc reload - Reload config file");
+        plugin.getConfig().addDefault("Messages.Command.Help.Start","/uhc start - Force start the game/pvp/border");
+        plugin.getConfig().addDefault("Messages.Command.Help.Seed","/uhc seed [new] - Generates or sets a new seed for the Randomizer");
         plugin.getConfig().addDefault("Messages.Bar.Start","&6Game starting in {0} second(s)");
         plugin.getConfig().addDefault("Messages.Bar.PVP.Min","&cPVP starts in {0} minute(s)");
         plugin.getConfig().addDefault("Messages.Bar.PVP.Sec","&cPVP starts in {0} second(s)");
@@ -137,17 +155,11 @@ public class Main extends JavaPlugin {
 
     public void onDisable() {
         WorldManager.deleteWorld();
-        this.getLogger().log(Level.INFO,"Disabled plugin");
+        this.getLogger().log(Level.INFO,"Plugin disabled. Thanks for playing!");
     }
 
     public static void announce(String msg){
         plugin.getServer().broadcastMessage(ChatColor.translateAlternateColorCodes('&',msg));
-    }
-
-    public static int getVersionInt(){
-        String version = Main.getPlugin().getServer().getClass().getPackage().getName().replace(".", ",").split(",")[3].replaceAll("v", "").replaceAll("_", "").split("R")[0];
-        if(version.endsWith(".")) version = version.substring(0, version.length() - 1);
-        return Integer.parseInt(version);
     }
 
     private void addNotch(){
@@ -173,24 +185,30 @@ public class Main extends JavaPlugin {
     }
 
     private void start() {
-        if(!WorldManager.createWorld()){
-            getServer().getLogger().log(Level.SEVERE,"An error occured while creating the world for the game! Starting aborted.");
+        if (!WorldManager.createWorld()) {
+            getServer().getLogger().log(Level.SEVERE, "An error occured while creating the world for the game! Starting aborted.");
             return;
         }
-        border = WorldManager.getWorld().getWorldBorder();
-        border.setCenter(0,0);
+        World world;
+        try {
+            world = WorldManager.getWorld();
+        } catch (NullPointerException e) {
+            getServer().getLogger().log(Level.SEVERE, "An error occured while trying to get the world for the game! Starting aborted.");
+            return;
+        }
+        WorldBorder border = world.getWorldBorder();
+        border.setCenter(0, 0);
         border.setSize(BORDER_SIZE);
         getServer().setWhitelist(false);
-        pc.runTaskTimer(this,0,20);
-        for(Player online : Bukkit.getOnlinePlayers()) {
+        this.getLogger().log(Level.INFO,"UltraHardcore is now ready for action! Have fun~");
+        pc.runTaskTimer(this, 0, 20);
+        for (Player online : Bukkit.getOnlinePlayers()) {
             bar.addPlayer(online);
         }
     }
 
-    public static int setPvP(int newValue){
-        int oldValue = PVP;
+    public static void setPvP(int newValue){
         PVP = newValue;
-        return oldValue;
     }
 
     public static int getPvP(){
@@ -224,17 +242,17 @@ public class Main extends JavaPlugin {
     private static Color randomColor(){
         int count = colors.size();
         int seed = (int)System.currentTimeMillis();
+        seed = (int)(seed * Math.random());
         int random_int = random(seed,count);
         return colors.get(random_int);
     }
 
     private static BarColor randBarColor(){
-        ArrayList<BarColor> names = new ArrayList<>();
-        for(BarColor bc : BarColor.values()){
-            names.add(bc);
-        }
+        ArrayList<BarColor> names = new ArrayList<>(Arrays.asList(BarColor.values()));
+        names.remove(BarColor.WHITE);
         int count = names.size();
         int seed = (int)System.currentTimeMillis();
+        seed = (int)(seed * Math.random());
         int random_int = random(seed,count);
         return names.get(random_int);
     }
@@ -246,34 +264,39 @@ public class Main extends JavaPlugin {
     }
 
     public static void spawnFireworks(Location location, int amount){
-        int diameter = 10; //Diameter of the circle centered on loc
-        Location loc = location;
-        Firework fw = (Firework) loc.getWorld().spawnEntity(loc, EntityType.FIREWORK);
+        Firework fw = (Firework) location.getWorld().spawnEntity(location, EntityType.FIREWORK);
         FireworkMeta fwm = fw.getFireworkMeta();
 
         fwm.setPower(0);
         Color c = randomColor();
-        fwm.addEffect(FireworkEffect.builder().withColor(c).flicker(true).trail(true).build());
+        fwm.addEffect(FireworkEffect.builder().withColor(c).flicker(true).trail(false).build());
 
         fw.setFireworkMeta(fwm);
 
         for(int i = 0;i<amount; i++){
-            Location newLocation = loc.add(new Vector(Math.random()-0.5, 5, Math.random()-0.5).multiply(diameter));
-            Firework fw2 = (Firework) loc.getWorld().spawnEntity(newLocation, EntityType.FIREWORK);
+            Location newLocation = location.add(new Vector(Math.random()-0.5, 5, Math.random()-0.5).multiply(10));
+            Firework fw2 = (Firework) location.getWorld().spawnEntity(newLocation, EntityType.FIREWORK);
             FireworkMeta fw2m = fw.getFireworkMeta();
             Color c2 = randomColor();
-            fwm.addEffect(FireworkEffect.builder().withColor(c2).flicker(true).trail(true).build());
+            fwm.addEffect(FireworkEffect.builder().withColor(c2).flicker(true).trail(false).build());
             fw2m.setPower(0);
             fw2.setFireworkMeta(fw2m);
         }
     }
 
-    public static WorldBorder getBorder(){
-        return border;
+    public static WorldBorder getBorder() throws NullPointerException{
+        World world = WorldManager.getWorld();
+        return world.getWorldBorder();
+    }
+
+    private static void setupPlayers(){
+        for(Player online : Bukkit.getOnlinePlayers()) {
+            if(online.getGameMode() == GameMode.SURVIVAL)
+                list.add(online);
+        }
     }
 
     private static void setupBoard(){
-        ALIVE = 0;
         ScoreboardManager manager = Bukkit.getScoreboardManager();
         board = manager.getNewScoreboard();
         Objective objective = board.registerNewObjective("test", "playerKillCount", "Player score");
@@ -283,7 +306,7 @@ public class Main extends JavaPlugin {
             score.setScore(0);
         }
         for(Player online : Bukkit.getOnlinePlayers()) {
-            ALIVE++;
+            list.add(online);
             online.setScoreboard(board);
             online.setGameMode(GameMode.SURVIVAL);
         }
@@ -307,21 +330,50 @@ public class Main extends JavaPlugin {
         }
     }
 
-    public static void leave(Player player){
-        FORCE_START = false;
-        if(ALIVE > 0) ALIVE--;
-        else pc.setStart(getPlugin().getConfig().getInt("START"));
+    public static boolean gameCheck(Player player){
+        return join.contains(player);
     }
 
-    public static void playerDeath(){
-        ALIVE--;
-        if(ALIVE == 1){
+    public static void gameJoin(Player player){
+        join.add(player);
+    }
+
+    public static void gameQuit(Player player){
+        join.remove(player);
+    }
+
+    public static void leave(Player player){
+        FORCE_START = false;
+        if(list.size() > 0) {
+            announce(Main.getPlugin().getConfig().getString("Messages.GameEnd.Announce").replace("{0}", winner.getName()));
+            list.remove(player);
+            if(list.size() == 1){
+                try{
+                    if(!pc.isCancelled()) pc.cancel();
+                } catch (IllegalStateException e){
+                    try{
+                        if(!bc.isCancelled()) bc.cancel();
+                    } catch (IllegalStateException ignored){}
+                }
+                winner = list.get(0);
+                announce(Main.getPlugin().getConfig().getString("Messages.GameEnd.Announce").replace("{0}", winner.getName()));
+                startShutdown();
+            }
+        } else {
+            pc.setStart(getPlugin().getConfig().getInt("START"));
+            gameQuit(player);
+        }
+    }
+
+    public static void playerDeath(Player p){
+        list.remove(p);
+        if(list.size() == 1){
             try{
                 if(!pc.isCancelled()) pc.cancel();
             } catch (IllegalStateException e){
                 try{
                     if(!bc.isCancelled()) bc.cancel();
-                } catch (IllegalStateException e2){}
+                } catch (IllegalStateException ignored){}
             }
             for(Player online : Bukkit.getOnlinePlayers()) {
                 if(online.getGameMode() == GameMode.SURVIVAL){
@@ -336,36 +388,51 @@ public class Main extends JavaPlugin {
     private static void teleportPlayers(){
         for(Player online : Bukkit.getOnlinePlayers()){
             boolean isSafe = false;
-            World w = WorldManager.getWorld();
+            World w;
+            try{
+                w = WorldManager.getWorld();
+            } catch (NullPointerException e){
+                plugin.getServer().getLogger().log(Level.SEVERE,"Error: "+e.getMessage());
+                return;
+            }
             Location loc = null;
             while(!isSafe) {
                 loc = getRandomLocation(w);
                 loc.setY(w.getHighestBlockAt(loc.getBlockX(), loc.getBlockZ()).getY());
                 try {
-                    LocationUtil.getSafeDestination(loc);
+                    loc = LocationUtil.getSafeDestination(loc);
                     isSafe = true;
-                } catch (Exception e) {}
-            }
-            if(loc == null){
-                getPlugin().getServer().getLogger().log(Level.SEVERE,"An error occured while trying to get safe location for player "+online.getName()+"! Teleport aborted.");
-                continue;
+                } catch (Exception ignored) {}
             }
             online.teleport(loc);
+            online.setGameMode(GameMode.SURVIVAL);
+            online.setFoodLevel(20);
+            online.setHealth(20);
+            online.getInventory().clear();
+
         }
     }
 
-    private static Location getRandomLocation(World world) {
+    public static Location getRandomLocation(World world) {
         final double randomX = ThreadLocalRandom.current().nextDouble(0, world.getWorldBorder().getSize() / 2);
         final double randomY = ThreadLocalRandom.current().nextDouble(0, world.getWorldBorder().getSize() / 2);
         return world.getWorldBorder().getCenter().add(randomX, 0, randomY);
     }
 
     public static boolean isEnded() {
-        return (ALIVE == 1);
+        return (list.size() == 1);
     }
 
-    public static void setStart(int value){
+    public static void setGameStart(int value){
         pc.setStart(value);
+    }
+
+    public static void setBorderStart(int value){
+        bc.setStart(value);
+    }
+
+    public static void setBorderSpeed(int value){
+        bc.setSpeed(value);
     }
 
     public static String c(String m){
@@ -396,12 +463,18 @@ public class Main extends JavaPlugin {
                     if (count % 60 == 0) {
                         announce(Main.getPlugin().getConfig().getString("Messages.PVP.Min").replace("{0}", Integer.toString(min)));
                         isFirst = false;
+                        if(BOSSBAR_MESSAGES){
+                            bar.setTitle(c(Main.getPlugin().getConfig().getString("Messages.PVP.Min").replace("{0}", Integer.toString(min))));
+                        }
+                    }
+                    if(isFirst){
+                        bar.setTitle(c(Main.getPlugin().getConfig().getString("Messages.PVP.Min").replace("{0}", Integer.toString(min))));
+                        isFirst = false;
                     }
                     if(BOSSBAR_MESSAGES) {
                         double progress = (double) count / (double) count_def;
                         bar.setVisible(true);
                         bar.setColor(pvpcolor);
-                        bar.setTitle(c(Main.getPlugin().getConfig().getString("Messages.PVP.Min").replace("{0}", Integer.toString(min))));
                         bar.setProgress(progress);
                     }
                 } else {
@@ -423,12 +496,6 @@ public class Main extends JavaPlugin {
                             case 2:
                             case 1:
                                 announce(Main.getPlugin().getConfig().getString("Messages.PVP.Sec").replace("{0}", Integer.toString(count)));
-                                if(BOSSBAR_MESSAGES) {
-                                    bar.setVisible(true);
-                                    bar.setColor(pvpcolor);
-                                    bar.setTitle(c(Main.getPlugin().getConfig().getString("Messages.PVP.Sec").replace("{0}", Integer.toString(count))));
-                                    bar.setProgress(progress);
-                                }
                                 break;
                             case 0:
                                 announce(Main.getPlugin().getConfig().getString("Messages.PVP.Start"));
@@ -436,6 +503,12 @@ public class Main extends JavaPlugin {
                                 if (BORDER_ALLOW) Main.startBorder();
                                 break;
                             default:
+                                if(BOSSBAR_MESSAGES) {
+                                    bar.setVisible(true);
+                                    bar.setColor(pvpcolor);
+                                    bar.setTitle(c(Main.getPlugin().getConfig().getString("Messages.PVP.Sec").replace("{0}", Integer.toString(count))));
+                                    bar.setProgress(progress);
+                                }
                                 break;
                         }
                     }
@@ -443,7 +516,7 @@ public class Main extends JavaPlugin {
                 if(count > 0) count--;
                 Main.setPvP(count);
             } else {
-                if(Main.getPlugin().getServer().getOnlinePlayers().size() < Main.MIN_PLAYERS && !Main.FORCE_START){
+                if(Main.join.size() < Main.MIN_PLAYERS && !Main.FORCE_START){
                     if(bar.isVisible()) bar.setVisible(false);
                     return;
                 }
@@ -473,6 +546,7 @@ public class Main extends JavaPlugin {
                         isStarted = true;
                         announce(Main.getPlugin().getConfig().getString("Messages.GameStart").replace("{0}", Integer.toString(start)));
                         if(SCOREBOARD) setupBoard();
+                        else setupPlayers();
                         getServer().setWhitelist(true);
                         teleportPlayers();
                         if(BOSSBAR_MESSAGES) {
@@ -516,23 +590,39 @@ public class Main extends JavaPlugin {
             BORDER_START_WAIT = Main.BORDER_START_WAIT;
             BSW_DEF = Main.BORDER_START_WAIT;
             wait = BORDER_WAIT;
-            border = Main.getBorder();
         }
 
+        public void setStart(int value){
+            if(BORDER_START_WAIT > 0 && value > 0){
+                BORDER_START_WAIT = value;
+            }
+        }
+
+        public void setSpeed(int value){
+            if(value > 0){
+                BORDER_SPEED = value;
+            }
+        }
 
         @Override
         public void run() {
             if(BORDER_START_WAIT == 0) {
+                try {
+                    border = Main.getBorder();
+                } catch (NullPointerException e){
+                    getServer().getLogger().log(Level.SEVERE,"Error: "+e.getMessage());
+                    return;
+                }
                 if(bar.isVisible()) bar.setVisible(false);
                 if(isFirst){
                     BORDER_SIZE = BORDER_SIZE / 2;
                     border.setSize(BORDER_SIZE, BORDER_SPEED);
                     isFirst = false;
-                    announce(Main.getPlugin().getConfig().getString("Messages.Border.Moving"));
+                    String size = (BORDER_SIZE/2)+"x"+(BORDER_SIZE/2);
+                    announce(Main.getPlugin().getConfig().getString("Messages.Border.Moving").replace("{0}",size));
                     return;
                 }
                 if (wait == 0) {
-                    announce(Main.getPlugin().getConfig().getString("Messages.Border.Moving"));
                     BORDER_SIZE = BORDER_SIZE / 2;
                     if (BORDER_SIZE < 4) {
                         BORDER_SIZE = 4;
@@ -542,9 +632,11 @@ public class Main extends JavaPlugin {
                         border.setSize(BORDER_SIZE, BORDER_SPEED);
                         wait--;
                     }
+                    String size = (BORDER_SIZE/2)+"x"+(BORDER_SIZE/2);
+                    announce(Main.getPlugin().getConfig().getString("Messages.Border.Moving").replace("{0}",size));
                 } else if (wait == -1) {
                     if (border.getSize() == BORDER_SIZE) {
-                        if (BORDER_WAIT > 10) BORDER_WAIT = BORDER_WAIT / 2;
+                        if (BORDER_WAIT > 10) BORDER_WAIT = (int) (BORDER_WAIT / 1.5);
                         wait = BORDER_WAIT;
                         if(BOSSBAR_MESSAGES) {
                             double progress = (double) wait / (double) BORDER_WAIT;
@@ -593,14 +685,22 @@ public class Main extends JavaPlugin {
                             }
                             break;
                         default:
-                            if(BORDER_START_WAIT % 60 == 0){
-                                announce(Main.getPlugin().getConfig().getString("Messages.Border.Start.Min").replace("{0}", Integer.toString(min)));
-                                if(BOSSBAR_MESSAGES) {
-                                    double progress2 = (double) BORDER_START_WAIT / (double) BSW_DEF;
-                                    bar.setVisible(true);
-                                    bar.setColor(bordercolor);
-                                    bar.setProgress(progress2);
-                                    bar.setTitle(c(Main.getPlugin().getConfig().getString("Messages.Bar.Border.Min").replace("{0}", Integer.toString(min))));
+                            if(BOSSBAR_MESSAGES){
+                                double progress = (double) BORDER_START_WAIT / (double) BSW_DEF;
+                                bar.setVisible(true);
+                                bar.setColor(bordercolor);
+                                bar.setProgress(progress);
+                            }
+                            if(BORDER_START_WAIT > 60) {
+                                if (BORDER_START_WAIT % 60 == 0) {
+                                    announce(Main.getPlugin().getConfig().getString("Messages.Border.Start.Min").replace("{0}", Integer.toString(min)));
+                                    if (BOSSBAR_MESSAGES) {
+                                        bar.setTitle(c(Main.getPlugin().getConfig().getString("Messages.Bar.Border.Min").replace("{0}", Integer.toString(min))));
+                                    }
+                                }
+                            } else {
+                                if(BOSSBAR_MESSAGES){
+                                    bar.setTitle(c(Main.getPlugin().getConfig().getString("Messages.Bar.Border.Sec").replace("{0}", Integer.toString(BORDER_START_WAIT))));
                                 }
                             }
                             break;

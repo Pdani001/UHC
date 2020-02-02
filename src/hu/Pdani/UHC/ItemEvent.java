@@ -63,15 +63,15 @@ public class ItemEvent implements Listener {
             }
 
             ItemMeta itemmeta_result;
-            if (itemstack_result.hasItemMeta() == false) {
+            if (!itemstack_result.hasItemMeta()) {
                 itemmeta_result = Main.getPlugin().getServer().getItemFactory().getItemMeta(itemstack_result.getType());
             } else {
                 itemmeta_result = itemstack_result.getItemMeta();
             }
-            if (Randomizer.RANDOMIZE_CRAFT == true) {
+            if (Randomizer.RANDOMIZE_CRAFT) {
                 result.setResult(Randomizer.randomizeItemStack(itemstack_result, Randomizer.RANDOMIZE_DURABILITY_OF_CRAFTED_ITEMS));
             }
-            if (Randomizer.RANDOMIZE_DURABILITY_OF_CRAFTED_ITEMS == true && Randomizer.RANDOMIZE_CRAFT == false) {
+            if (Randomizer.RANDOMIZE_DURABILITY_OF_CRAFTED_ITEMS && !Randomizer.RANDOMIZE_CRAFT) {
                 itemstack_result.setItemMeta(Randomizer.randomizeDurability(true, itemstack_result, itemmeta_result));
             }
         }

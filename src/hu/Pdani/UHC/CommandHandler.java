@@ -1,18 +1,44 @@
 package hu.Pdani.UHC;
 
+import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
+import org.bukkit.entity.Player;
 
 public class CommandHandler implements CommandExecutor {
+
+    public String c(String m){
+        return ChatColor.translateAlternateColorCodes('&',m);
+    }
 
     @Override
     public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args) {
         if(args.length == 0){
+            sender.sendMessage(c(Main.getPlugin().getConfig().getString("Messages.Command.Help.Join")));
+            sender.sendMessage(c(Main.getPlugin().getConfig().getString("Messages.Command.Help.Leave")));
             if(sender.hasPermission("uhc.admin")){
-                sender.sendMessage("/uhc reload - Reload config file");
-                sender.sendMessage("/uhc start - Force start the game");
-                sender.sendMessage("/uhc seed [new] - Generates or sets a new seed for the Randomizer");
+                sender.sendMessage(c(Main.getPlugin().getConfig().getString("Messages.Command.Help.Reload")));
+                sender.sendMessage(c(Main.getPlugin().getConfig().getString("Messages.Command.Help.Start")));
+                sender.sendMessage(c(Main.getPlugin().getConfig().getString("Messages.Command.Help.Seed")));
+            }
+        } else if(args[0].equalsIgnoreCase("leave")){
+            if(!(sender instanceof Player))
+                return true;
+            Player player = (Player) sender;
+            if(Main.gameCheck(player)) {
+                Main.leave(player);
+            } else {
+                sender.sendMessage(c(Main.getPlugin().getConfig().getString("Messages.Command.LeaveError")));
+            }
+        } else if(args[0].equalsIgnoreCase("join")){
+            if(!(sender instanceof Player))
+                return true;
+            Player player = (Player) sender;
+            if(!Main.gameCheck(player)) {
+                Main.gameJoin(player);
+            } else {
+                sender.sendMessage(c(Main.getPlugin().getConfig().getString("Messages.Command.JoinError")));
             }
         } else if(args[0].equalsIgnoreCase("reload")){
             if(sender.hasPermission("uhc.admin")){
@@ -20,6 +46,7 @@ public class CommandHandler implements CommandExecutor {
                 Main.setupConfig();
                 Main.MIN_PLAYERS = Main.getPlugin().getConfig().getInt("MIN_PLAYERS");
                 Main.BORDER_SPEED = Main.getPlugin().getConfig().getInt("BORDER_SPEED");
+                Main.setBorderSpeed(Main.BORDER_SPEED);
                 Main.RANDOMIZE_ITEMS = Main.getPlugin().getConfig().getBoolean("RANDOMIZE_ITEMS");
                 Main.SERVER_RESTART = Main.getPlugin().getConfig().getBoolean("SERVER_RESTART");
                 Randomizer.RANDOMIZE_DURABILITY = Main.getPlugin().getConfig().getBoolean("RANDOMIZE_DURABILITY",false);
@@ -27,7 +54,7 @@ public class CommandHandler implements CommandExecutor {
                 Randomizer.RANDOMIZE_CRAFT = Main.getPlugin().getConfig().getBoolean("RANDOMIZE_CRAFT",false);
 
                 if(!Main.gameStarted())
-                    Main.setStart(Main.getPlugin().getConfig().getInt("START"));
+                    Main.setGameStart(Main.getPlugin().getConfig().getInt("START"));
 
                 if(!Main.RANDOMIZE_ITEMS && Randomizer.isEnabled()){
                     Randomizer.disable();
@@ -52,13 +79,23 @@ public class CommandHandler implements CommandExecutor {
             }
         } else if(args[0].equalsIgnoreCase("start")){
             if(sender.hasPermission("uhc.admin")) {
-                if (Main.getPlugin().getServer().getOnlinePlayers().size() < 2) {
+                if (Main.join.size() < 2) {
                     sender.sendMessage("Not enough players!");
                     return true;
                 }
-                Main.FORCE_START = true;
-                Main.setStart(10);
-                sender.sendMessage("Game started!");
+                if(!Main.gameStarted()) {
+                    Main.FORCE_START = true;
+                    Main.setGameStart(10);
+                    sender.sendMessage("Game started!");
+                } else {
+                    if(!Main.isPvP()) {
+                        Main.setPvP(10);
+                        sender.sendMessage("PVP started!");
+                    } else {
+                        Main.setBorderStart(10);
+                        sender.sendMessage("Border started!");
+                    }
+                }
             }
         }
         return true;

@@ -7,13 +7,13 @@ import org.bukkit.inventory.meta.ItemMeta;
 
 import java.util.ArrayList;
 import java.util.Random;
+import java.util.logging.Level;
 
 public class Randomizer {
     public static boolean RANDOMIZE_DURABILITY;
     public static boolean RANDOMIZE_DURABILITY_OF_CRAFTED_ITEMS;
     public static int SEED;
     public static boolean RANDOMIZE_CRAFT;
-    public static boolean PAST_FLATTENING;
     private static boolean INIT = false;
 
     public static boolean isEnabled(){
@@ -24,16 +24,13 @@ public class Randomizer {
         INIT = false;
     }
 
-    public static int newSeed(){
-        int oldseed = SEED;
+    public static void newSeed(){
         SEED = (int)System.currentTimeMillis();
-        return oldseed;
+        SEED = (int)(SEED * Math.random());
     }
 
-    public static int newSeed(int seed){
-        int oldseed = SEED;
+    public static void newSeed(int seed){
         SEED = seed;
-        return oldseed;
     }
 
     public static void init(){
@@ -45,17 +42,10 @@ public class Randomizer {
         RANDOMIZE_CRAFT = Main.getPlugin().getConfig().getBoolean("RANDOMIZE_CRAFT",false);
         newSeed();
 
-        if(Main.getVersionInt() < 113) {
-            PAST_FLATTENING = false;
-        }
-        else {
-            PAST_FLATTENING = true;
-        }
-
         INIT = true;
     }
 
-    public static Material getRandomItemFromItemWithSeed(Material material, int fallback, int magic_id) {
+    public static Material getRandomItemFromItemWithSeed(Material material, int fallback) {
         if(!INIT)
             return null;
         int count = 0;
@@ -71,55 +61,45 @@ public class Randomizer {
             names.add(material_loop);
             count++;
         }
-        int random_int = pseudoRandom(SEED, count, block_nbr, fallback, magic_id);
+        int random_int = pseudoRandom(SEED, count, block_nbr, fallback);
 
         return names.get(random_int);
     }
-    @SuppressWarnings("deprecation")
     public static ItemStack randomizeItemStack(ItemStack itemstack, boolean randomize_durability) {
         if(!INIT)
             return null;
         Material material = itemstack.getType();
         int itemstack_amount = itemstack.getAmount();
 
-        byte magic_id = 0;
-        if(PAST_FLATTENING == false) {
-            // PRE-FLATTENING SUPPORT
-            ItemStack itemstack_check = itemstack;
-            itemstack_check.setDurability((short) 0);
-            magic_id = itemstack.getData().getData();
-        }
-
         int loop = 0;
         Material item_to_drop;
         while (true) {
-            item_to_drop = getRandomItemFromItemWithSeed(material, loop, magic_id);
+            item_to_drop = getRandomItemFromItemWithSeed(material, loop);
             try {
-                ItemStack itemstack_drop = itemstack;
-                itemstack_drop.setType(item_to_drop);
+                itemstack.setType(item_to_drop);
 
                 ItemMeta itemmeta_drop;
                 if(!itemstack.hasItemMeta()) {
-                    itemmeta_drop = Main.getPlugin().getServer().getItemFactory().getItemMeta(itemstack_drop.getType());
+                    itemmeta_drop = Main.getPlugin().getServer().getItemFactory().getItemMeta(itemstack.getType());
                 }
                 else {
                     itemmeta_drop = itemstack.getItemMeta();
                 }
 
 
-                itemmeta_drop = randomizeDurability(randomize_durability, itemstack_drop, itemmeta_drop);
+                itemmeta_drop = randomizeDurability(randomize_durability, itemstack, itemmeta_drop);
 
-                itemstack_drop.setAmount(itemstack_amount);
-                itemstack_drop.setItemMeta(itemmeta_drop);
+                itemstack.setAmount(itemstack_amount);
+                itemstack.setItemMeta(itemmeta_drop);
 
-                return itemstack_drop;
+                return itemstack;
             }
             catch (java.lang.IllegalArgumentException | java.lang.NullPointerException ex) {
                 loop ++;
             }
         }
     }
-    @SuppressWarnings("deprecation")
+
     public static ItemMeta randomizeDurability(boolean randomize_durability, ItemStack itemstack, ItemMeta itemmeta) {
         if(!INIT)
             return null;
@@ -139,21 +119,14 @@ public class Randomizer {
                 }
             }
             catch (java.lang.NoClassDefFoundError e) {
-                // 1.8 support
-                if(!randomize_durability) {
-                    itemstack.setDurability((short) 0);
-                }
-                else {
-                    short random2 = (short) ((int) (Math.random() * ((item_max_durability) + 1)));
-                    itemstack.setDurability(random2);
-                }
+                Main.getPlugin().getServer().getLogger().log(Level.SEVERE, "Item durability randomization is not supported on this version!");
             }
         }
         return itemmeta;
     }
-    public static int pseudoRandom(int seed, int i, int add, int fallback, int magic_id) {
+    public static int pseudoRandom(int seed, int i, int add, int fallback) {
         Random randnum = new Random();
-        randnum.setSeed(seed*add+fallback+magic_id);
+        randnum.setSeed(seed*add+fallback);
         return randnum.nextInt(i);
     }
     public static boolean isAir(Material m){
