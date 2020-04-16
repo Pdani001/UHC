@@ -1,6 +1,7 @@
 package hu.Pdani.UHC;
 
 import org.bukkit.ChatColor;
+import org.bukkit.Location;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -15,12 +16,18 @@ public class CommandHandler implements CommandExecutor {
     @Override
     public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args) {
         if(args.length == 0){
+            if(!sender.hasPermission("uhc.play")){
+
+                return true;
+            }
             sender.sendMessage(c(Main.getPlugin().getConfig().getString("Messages.Command.Help.Join")));
             sender.sendMessage(c(Main.getPlugin().getConfig().getString("Messages.Command.Help.Leave")));
+            sender.sendMessage(c(Main.getPlugin().getConfig().getString("Messages.Command.Help.Spectate")));
             if(sender.hasPermission("uhc.admin")){
                 sender.sendMessage(c(Main.getPlugin().getConfig().getString("Messages.Command.Help.Reload")));
                 sender.sendMessage(c(Main.getPlugin().getConfig().getString("Messages.Command.Help.Start")));
                 sender.sendMessage(c(Main.getPlugin().getConfig().getString("Messages.Command.Help.Seed")));
+                sender.sendMessage(c(Main.getPlugin().getConfig().getString("Messages.Command.Help.SetLobby")));
             }
         } else if(args[0].equalsIgnoreCase("leave")){
             if(!(sender instanceof Player))
@@ -36,9 +43,19 @@ public class CommandHandler implements CommandExecutor {
             if(!(sender instanceof Player))
                 return true;
             Player player = (Player) sender;
+            if(Main.gameStarted()){
+                Main.orig.put(player,player.getLocation());
+                Main.specJoin(player);
+                return true;
+            }
             if(!Main.gameCheck(player)) {
+                if(Main.LOBBY == null || LocationUtil.validWorld(Main.LOBBY.getWorld().getName())){
+                    return true;
+                }
                 sender.sendMessage(c(Main.getPlugin().getConfig().getString("Messages.Game.Join.Game")));
+                Main.orig.put(player,player.getLocation());
                 Main.gameJoin(player);
+                player.teleport(Main.LOBBY);
             } else {
                 sender.sendMessage(c(Main.getPlugin().getConfig().getString("Messages.Command.JoinError")));
             }
@@ -98,6 +115,22 @@ public class CommandHandler implements CommandExecutor {
                         sender.sendMessage("Border started!");
                     }
                 }
+            }
+        } else if(args[0].equalsIgnoreCase("setlobby")){
+            if(sender.hasPermission("uhc.admin")) {
+                Player player = (Player) sender;
+                Location loc = player.getLocation();
+                boolean isSafe = false;
+                while(!isSafe) {
+                    try {
+                        loc = LocationUtil.getSafeDestination(loc);
+                        isSafe = true;
+                    } catch (Exception ignored) {}
+                }
+                Main.LOBBY = loc;
+                Main.getPlugin().getConfig().set("LOBBY",loc);
+                Main.getPlugin().saveConfig();
+                sender.sendMessage("Lobby set.");
             }
         }
         return true;

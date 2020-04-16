@@ -1,9 +1,6 @@
 package hu.Pdani.UHC;
 
-import org.bukkit.GameMode;
-import org.bukkit.Location;
-import org.bukkit.Material;
-import org.bukkit.World;
+import org.bukkit.*;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
 
@@ -13,7 +10,6 @@ import java.util.*;
 @SuppressWarnings("deprecation")
 public class LocationUtil {
     private static final Set<Material> HOLLOW_MATERIALS = new HashSet<>();
-    private static final Set<Material> TRANSPARENT_MATERIALS = new HashSet<>();
     public static final int RADIUS = 3;
     public static final Vector3D[] VOLUME;
 
@@ -86,10 +82,9 @@ public class LocationUtil {
             }
         }
 
-        TRANSPARENT_MATERIALS.addAll(HOLLOW_MATERIALS);
-        TRANSPARENT_MATERIALS.add(Material.WATER);
+        HOLLOW_MATERIALS.add(Material.WATER);
         try {
-            TRANSPARENT_MATERIALS.add(Material.valueOf("FLOWING_WATER"));
+            HOLLOW_MATERIALS.add(Material.valueOf("FLOWING_WATER"));
         } catch (Exception ignored) {} // 1.13 WATER uses Levelled
     }
     static {
@@ -103,6 +98,10 @@ public class LocationUtil {
         }
         pos.sort(Comparator.comparingInt(a -> (a.x * a.x + a.y * a.y + a.z * a.z)));
         VOLUME = pos.toArray(new Vector3D[0]);
+    }
+
+    public static boolean validWorld(final String world){
+        return Bukkit.getWorld(world) != null;
     }
 
     public static boolean isBlockAboveAir(final World world, final int x, final int y, final int z) {

@@ -17,6 +17,7 @@ import org.bukkit.util.Vector;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.logging.Level;
@@ -26,6 +27,7 @@ public class Main extends JavaPlugin {
     public static boolean RANDOMIZE_ITEMS, SCOREBOARD, BORDER_ALLOW, SERVER_RESTART, FORCE_START, BOSSBAR_MESSAGES;
     private static int PVP;
     public static int BORDER_WAIT,BORDER_START_WAIT,BORDER_SIZE,BORDER_SPEED,MIN_PLAYERS;
+    public static Location LOBBY;
     private static Border bc;
     private static PVP pc;
     private static Restart rc;
@@ -34,6 +36,8 @@ public class Main extends JavaPlugin {
     private static ArrayList<Color> colors = new ArrayList<>();
     public static ArrayList<Player> list = new ArrayList<>();
     public static ArrayList<Player> join = new ArrayList<>();
+    public static HashMap<Player,Location> death = new HashMap<>();
+    public static HashMap<Player,Location> orig = new HashMap<>();
     private static Player winner = null;
     private static BarColor startcolor,pvpcolor,bordercolor;
     public static BossBar bar;
@@ -46,7 +50,7 @@ public class Main extends JavaPlugin {
 
     public void onEnable(){
 
-        bar = getServer().createBossBar("Test",BarColor.WHITE, BarStyle.SOLID);
+        bar = getServer().createBossBar("UHCBar",BarColor.WHITE, BarStyle.SOLID);
         bar.setVisible(false);
 
         setupColors();
@@ -63,6 +67,7 @@ public class Main extends JavaPlugin {
         BORDER_SIZE = getConfig().getInt("BORDER_SIZE");
         BORDER_SPEED = getConfig().getInt("BORDER_SPEED");
         MIN_PLAYERS = getConfig().getInt("MIN_PLAYERS");
+        LOBBY = (getConfig().get("LOBBY") != null) ? (Location)getConfig().get("LOBBY") : null;
         FORCE_START = false;
 
         this.getLogger().log(Level.INFO,"BORDER_SIZE: "+BORDER_SIZE);
@@ -102,6 +107,7 @@ public class Main extends JavaPlugin {
         plugin.getConfig().addDefault("START", 30);
         plugin.getConfig().addDefault("SERVER_RESTART", false);
         plugin.getConfig().addDefault("BOSSBAR_MESSAGES", true);
+        plugin.getConfig().addDefault("LOBBY", null);
         plugin.getConfig().addDefault("Messages.PVP.Min","&d&lPVP will start in {0} minute(s)");
         plugin.getConfig().addDefault("Messages.PVP.Sec","&d&lPVP will start in {0} second(s)");
         plugin.getConfig().addDefault("Messages.PVP.Start","&4&lPVP starts now!");
@@ -130,19 +136,24 @@ public class Main extends JavaPlugin {
         plugin.getConfig().addDefault("Messages.GameEnd.Restart.InformationForYou","If you want to use the restart feature you need to set things up on your end, as this plugin only shuts down the server!");
         plugin.getConfig().addDefault("Messages.GameEnd.Stop.Count","&cThe server closes in &f{0} second(s)");
         plugin.getConfig().addDefault("Messages.GameEnd.Stop.Now","&4The server is closing!");
-        plugin.getConfig().addDefault("Messages.Game.Leave.Announce","&e{0} abandoned the current game!");
+        plugin.getConfig().addDefault("Messages.Game.Leave.Announce","&e{0} left the current game!");
         plugin.getConfig().addDefault("Messages.Game.Leave.Player","&4&lGame left.");
-        plugin.getConfig().addDefault("Messages.Game.Join.Server","&aWelcome {0}! To be able to play, please enter &7/uhc join&a!");
+        plugin.getConfig().addDefault("Messages.Game.Leave.Spectator.Success","&aYou are no longer spectating the game!");
+        plugin.getConfig().addDefault("Messages.Game.Leave.Spectator.Error","&cYou are not spectating any game!");
         plugin.getConfig().addDefault("Messages.Game.Join.Game","&b&lGame joined!");
-        plugin.getConfig().addDefault("Messages.Game.Join.Late","&cThe game already started, so you can only spectate!");
-        plugin.getConfig().addDefault("Messages.Game.Join.Spectator","&cYou didn't join the game, so you can only spectate!");
+        plugin.getConfig().addDefault("Messages.Game.Join.Spectator.Success","&aYou joined the spectators!");
+        plugin.getConfig().addDefault("Messages.Game.Join.Spectator.Disabled","&cSpectating is disabled!");
+        plugin.getConfig().addDefault("Messages.Game.Join.Spectator.Error.Already","&cYou are already spectating this game!");
+        plugin.getConfig().addDefault("Messages.Game.Join.Spectator.Error.NoGame","&cThere is no game currently running to spectate!");
         plugin.getConfig().addDefault("Messages.Command.JoinError","&3You are already in the game!");
         plugin.getConfig().addDefault("Messages.Command.LeaveError","&cYou are not in the game!");
         plugin.getConfig().addDefault("Messages.Command.Help.Join","/uhc join - Join the game");
         plugin.getConfig().addDefault("Messages.Command.Help.Leave","/uhc leave - Leave the game");
+        plugin.getConfig().addDefault("Messages.Command.Help.Spectate","/uhc spectate - Spectate the current running game");
         plugin.getConfig().addDefault("Messages.Command.Help.Reload","/uhc reload - Reload config file");
         plugin.getConfig().addDefault("Messages.Command.Help.Start","/uhc start - Force start the game/pvp/border");
         plugin.getConfig().addDefault("Messages.Command.Help.Seed","/uhc seed [new] - Generates or sets a new seed for the Randomizer");
+        plugin.getConfig().addDefault("Messages.Command.Help.SetLobby","/uhc setlobby - Set the lobby spawn to your current location");
         plugin.getConfig().addDefault("Messages.Bar.Start","&6Game starting in {0} second(s)");
         plugin.getConfig().addDefault("Messages.Bar.PVP.Min","&cPVP starts in {0} minute(s)");
         plugin.getConfig().addDefault("Messages.Bar.PVP.Sec","&cPVP starts in {0} second(s)");
@@ -159,7 +170,9 @@ public class Main extends JavaPlugin {
     }
 
     public static void announce(String msg){
-        plugin.getServer().broadcastMessage(ChatColor.translateAlternateColorCodes('&',msg));
+        for(Player p : join) {
+            p.sendMessage(ChatColor.translateAlternateColorCodes('&', msg));
+        }
     }
 
     private void addNotch(){
@@ -184,24 +197,23 @@ public class Main extends JavaPlugin {
         return isStarted;
     }
 
-    private void start() {
+    private static void start() {
         if (!WorldManager.createWorld()) {
-            getServer().getLogger().log(Level.SEVERE, "An error occured while creating the world for the game! Starting aborted.");
+            plugin.getLogger().log(Level.SEVERE, "An error occured while creating the world for the game! Starting aborted.");
             return;
         }
         World world;
         try {
             world = WorldManager.getWorld();
         } catch (NullPointerException e) {
-            getServer().getLogger().log(Level.SEVERE, "An error occured while trying to get the world for the game! Starting aborted.");
+            plugin.getLogger().log(Level.SEVERE, "An error occured while trying to get the world for the game! Starting aborted.");
             return;
         }
         WorldBorder border = world.getWorldBorder();
         border.setCenter(0, 0);
         border.setSize(BORDER_SIZE);
-        getServer().setWhitelist(false);
-        this.getLogger().log(Level.INFO,"UltraHardcore is now ready for action! Have fun~");
-        pc.runTaskTimer(this, 0, 20);
+        plugin.getLogger().log(Level.INFO,"UltraHardcore is now ready for action! Have fun~");
+        pc.runTaskTimer(plugin, 0, 20);
         for (Player online : Bukkit.getOnlinePlayers()) {
             bar.addPlayer(online);
         }
@@ -290,10 +302,7 @@ public class Main extends JavaPlugin {
     }
 
     private static void setupPlayers(){
-        for(Player online : Bukkit.getOnlinePlayers()) {
-            if(online.getGameMode() == GameMode.SURVIVAL)
-                list.add(online);
-        }
+        list.addAll(join);
     }
 
     private static void setupBoard(){
@@ -301,14 +310,13 @@ public class Main extends JavaPlugin {
         board = manager.getNewScoreboard();
         Objective objective = board.registerNewObjective("test", "playerKillCount", "Player score");
         objective.setDisplaySlot(DisplaySlot.SIDEBAR);
-        for(Player online : Bukkit.getOnlinePlayers()) {
+        for(Player online : join) {
             Score score = objective.getScore(online.getName());
             score.setScore(0);
         }
-        for(Player online : Bukkit.getOnlinePlayers()) {
+        for(Player online : join) {
             list.add(online);
             online.setScoreboard(board);
-            online.setGameMode(GameMode.SURVIVAL);
         }
     }
 
@@ -325,7 +333,7 @@ public class Main extends JavaPlugin {
         Objective objective = board.getObjective("test");
         Score score = objective.getScore(player.getName());
         score.setScore(score.getScore()+amount);
-        for(Player online : Bukkit.getOnlinePlayers()){
+        for(Player online : join){
             online.setScoreboard(board);
         }
     }
@@ -338,14 +346,41 @@ public class Main extends JavaPlugin {
         join.add(player);
     }
 
+    public static void specJoin(Player player){
+        World w;
+        try{
+            w = WorldManager.getWorld();
+        } catch (NullPointerException e){
+            plugin.getServer().getLogger().log(Level.SEVERE,"Error: "+e.getMessage());
+            return;
+        }
+        Location loc = null;
+        boolean isSafe = false;
+        while(!isSafe) {
+            loc = getRandomLocation(w);
+            loc.setY(w.getHighestBlockAt(loc.getBlockX(), loc.getBlockZ()).getY());
+            try {
+                loc = LocationUtil.getSafeDestination(loc);
+                isSafe = true;
+            } catch (Exception ignored) {}
+        }
+        join.add(player);
+        player.setScoreboard(board);
+        player.setGameMode(GameMode.SPECTATOR);
+        player.teleport(loc);
+        player.setFoodLevel(20);
+        player.setHealth(20);
+        player.setExp(0);
+    }
+
     public static void gameQuit(Player player){
         join.remove(player);
     }
 
     public static void leave(Player player){
         FORCE_START = false;
-        if(list.size() > 0) {
-            announce(Main.getPlugin().getConfig().getString("Messages.GameEnd.Announce").replace("{0}", winner.getName()));
+        if(list.size() > 0 && list.contains(player)) {
+            announce(Main.getPlugin().getConfig().getString("Messages.Game.Leave.Announce").replace("{0}", player.getName()));
             list.remove(player);
             if(list.size() == 1){
                 try{
@@ -386,7 +421,7 @@ public class Main extends JavaPlugin {
     }
 
     private static void teleportPlayers(){
-        for(Player online : Bukkit.getOnlinePlayers()){
+        for(Player online : join){
             boolean isSafe = false;
             World w;
             try{
@@ -404,18 +439,12 @@ public class Main extends JavaPlugin {
                     isSafe = true;
                 } catch (Exception ignored) {}
             }
+            if(!join.contains(online)) return;
+            online.setGameMode(GameMode.SURVIVAL);
             online.teleport(loc);
-            if(join.contains(online)) {
-                online.setGameMode(GameMode.SURVIVAL);
-            } else {
-                online.setGameMode(GameMode.SPECTATOR);
-                online.sendMessage(c(Main.getPlugin().getConfig().getString("Messages.Game.Join.Spectator")));
-            }
             online.setFoodLevel(20);
             online.setHealth(20);
             online.setExp(0);
-            online.getInventory().clear();
-
         }
     }
 
@@ -445,7 +474,7 @@ public class Main extends JavaPlugin {
         return ChatColor.translateAlternateColorCodes('&',m);
     }
 
-    public class PVP extends BukkitRunnable {
+    public static class PVP extends BukkitRunnable {
         private int count,count_def;
         private int start,start_def;
         private boolean isFirst = true;
@@ -553,7 +582,6 @@ public class Main extends JavaPlugin {
                         announce(Main.getPlugin().getConfig().getString("Messages.GameStart").replace("{0}", Integer.toString(start)));
                         if(SCOREBOARD) setupBoard();
                         else setupPlayers();
-                        getServer().setWhitelist(true);
                         teleportPlayers();
                         if(BOSSBAR_MESSAGES) {
                             bar.setVisible(true);
@@ -586,7 +614,6 @@ public class Main extends JavaPlugin {
         private int BORDER_SPEED;
         private int BORDER_SIZE;
         private int wait;
-        private WorldBorder border;
         private boolean isFirst = true;
 
         public Border(){
@@ -613,6 +640,7 @@ public class Main extends JavaPlugin {
         @Override
         public void run() {
             if(BORDER_START_WAIT == 0) {
+                WorldBorder border;
                 try {
                     border = Main.getBorder();
                 } catch (NullPointerException e){
@@ -717,9 +745,23 @@ public class Main extends JavaPlugin {
         }
     }
 
-    public class Restart extends BukkitRunnable {
+    public static void restartGame(){
+        for(Player p : join){
+            if(LOBBY != null && LocationUtil.validWorld(LOBBY.getWorld().getName()))
+                p.teleport(LOBBY);
+            else
+                p.teleport(orig.get(p));
+            orig.remove(p);
+        }
+        for(Player p : bar.getPlayers()){
+            bar.removePlayer(p);
+        }
+        Randomizer.newSeed();
+        Main.start();
+    }
+
+    public static class Restart extends BukkitRunnable {
         private int start_wait = 15;
-        private int wait = 10;
 
         public Restart(){
 
@@ -729,31 +771,7 @@ public class Main extends JavaPlugin {
         @Override
         public void run() {
             if(start_wait == 0){
-                switch (wait){
-                    case 10:
-                    case 5:
-                    case 4:
-                    case 3:
-                    case 2:
-                    case 1:
-                        if(SERVER_RESTART)
-                            announce(Main.getPlugin().getConfig().getString("Messages.GameEnd.Restart.Count").replace("{0}", Integer.toString(wait)));
-                        else
-                            announce(Main.getPlugin().getConfig().getString("Messages.GameEnd.Stop.Count").replace("{0}", Integer.toString(wait)));
-                        break;
-                    case 0:
-                        if(SERVER_RESTART)
-                            announce(Main.getPlugin().getConfig().getString("Messages.GameEnd.Restart.Now"));
-                        else
-                            announce(Main.getPlugin().getConfig().getString("Messages.GameEnd.Stop.Now"));
-                        break;
-                    case -1:
-                        plugin.getServer().shutdown();
-                        break;
-                    default:
-                        break;
-                }
-                wait--;
+                Main.restartGame();
             } else {
                 spawnFireworks(winner.getLocation(),2);
                 start_wait--;

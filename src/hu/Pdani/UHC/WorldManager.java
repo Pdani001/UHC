@@ -32,14 +32,15 @@ public class WorldManager {
         return true;
     }
 
-    public static boolean deleteWorld(){
+    public static void deleteWorld(){
         if(plugin == null) plugin = Main.getPlugin();
         World world = plugin.getServer().getWorld("UltraHardcore");
         plugin.getServer().unloadWorld("UltraHardcore",false);
         if(world == null){
-            return delete(new File(Bukkit.getWorldContainer(),"UltraHardcore"));
+            delete(new File(Bukkit.getWorldContainer(), "UltraHardcore"));
+            return;
         }
-        return delete(world.getWorldFolder());
+        delete(world.getWorldFolder());
     }
 
     public static World getWorld() throws NullPointerException {
@@ -50,12 +51,12 @@ public class WorldManager {
 
     private static boolean delete(File path) {
         if(path.exists()) {
-            File files[] = path.listFiles();
-            for(int i=0; i<files.length; i++) {
-                if(files[i].isDirectory()) {
-                    delete(files[i]);
+            File[] files = path.listFiles();
+            for (File file : files) {
+                if (file.isDirectory()) {
+                    delete(file);
                 } else {
-                    files[i].delete();
+                    file.delete();
                 }
             }
         }

@@ -16,6 +16,7 @@ import org.bukkit.inventory.meta.ItemMeta;
 public class ItemEvent implements Listener {
     @EventHandler
     public void itemDrop(PlayerDropItemEvent event){
+        if(event.getPlayer().getLocation().getWorld() != WorldManager.getWorld()) return;
         Item drop = event.getItemDrop();
         ItemStack i = drop.getItemStack();
         ItemMeta meta = i.getItemMeta();
@@ -26,6 +27,7 @@ public class ItemEvent implements Listener {
 
     @EventHandler
     public void itemClickDrop(InventoryClickEvent event){
+        if(event.getClickedInventory().getLocation().getWorld() != WorldManager.getWorld()) return;
         if(event.getClickedInventory() == null) {
             ItemStack i = event.getCurrentItem();
             if(i == null) return;
@@ -38,6 +40,7 @@ public class ItemEvent implements Listener {
 
     @EventHandler
     public void onItemSpawn(ItemSpawnEvent event) {
+        if(event.getEntity().getLocation().getWorld() != WorldManager.getWorld()) return;
         if(Randomizer.isEnabled()) {
             Item item = event.getEntity();
             ItemStack itemstack = item.getItemStack();
@@ -53,6 +56,7 @@ public class ItemEvent implements Listener {
     }
     @EventHandler
     public void onItemCraft(PrepareItemCraftEvent event) {
+        if(event.getInventory().getLocation().getWorld() != WorldManager.getWorld()) return;
         if(Randomizer.isEnabled()) {
             CraftingInventory result = event.getInventory();
             ItemStack itemstack_result = result.getResult();
